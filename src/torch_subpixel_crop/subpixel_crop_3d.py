@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import einops
 import torch.nn.functional as F
-from skimage import data
 from torch_fourier_shift import fourier_shift_image_3d
 from torch_grid_utils import coordinate_grid
 
