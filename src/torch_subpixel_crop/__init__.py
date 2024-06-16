@@ -8,3 +8,5 @@ except PackageNotFoundError:
     __version__ = "uninstalled"
 __author__ = "Alister Burt"
 __email__ = "alisterburt@gmail.com"
+
+from .subpixel_crop_2d import subpixel_crop_2d
