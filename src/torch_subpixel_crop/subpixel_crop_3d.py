@@ -28,17 +28,18 @@ def subpixel_crop_3d(
     image: torch.Tensor
         `(d, h, w)` array containing the volume.
     positions: torch.Tensor
-        `(b, 3)` array of coordinates for patch centers.
+        `(..., 3)` array of coordinates for patch centers.
     sidelength: int
         Sidelength of cubic patches extracted from `image`.
 
     Returns
     -------
     patches: torch.Tensor
-        `(b, sidelength, sidelength, sidelength)` array of cropped regions from `volume`
+        `(..., sidelength, sidelength, sidelength)` array of cropped regions from `volume`
         with their centers at `positions`.
     """
     d, h, w = image.shape
+    positions, ps = einops.pack([positions], pattern='* zyx')
     b, _ = positions.shape
 
     # find integer positions and shifts to be applied
@@ -68,4 +69,7 @@ def subpixel_crop_3d(
 
     # phase shift to center images
     patches = fourier_shift_image_3d(image=patches, shifts=shifts)
+
+    # unpack
+    [patches] = einops.unpack(patches, pattern='* t h w', packed_shapes=ps)
     return patches
