@@ -11,10 +11,13 @@ from torch_subpixel_crop.grid_sample_utils import array_to_grid_sample
 def subpixel_crop_2d(
     image: torch.Tensor, positions: torch.Tensor, sidelength: int,
 ):
-    """Extract square patches from 2D images at positions with subpixel precision.
+    """Extract square patches from 2D images with subpixel precision.
 
     Patches are extracted at the nearest integer coordinates then phase shifted
     such that the requested position is at the center of the patch.
+
+    The center of an image is defined to be the position of the DC component of an
+    fftshifted discrete Fourier transform.
 
     Parameters
     ----------
@@ -29,7 +32,7 @@ def subpixel_crop_2d(
     -------
     patches: torch.Tensor
         `(..., b, sidelength, sidelength)` or `(..., sidelength, sidelength)` array
-         of patches from `images` with their centers at `positions`.
+         of patches from `image` with their centers at `positions`.
     """
     # handling batched input
     if image.ndim == 2:
