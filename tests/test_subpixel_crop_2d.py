@@ -46,7 +46,8 @@ def test_subpixel_crop_multi_batch_2d():
     positions = einops.repeat(
         torch.tensor([[4, 4], [5, 5]]).float(),
         'n yx -> n b yx', b=batch
-    )
+    ).contiguous()  # clone so that we don't get a view
+    positions[0, 0, 0] = 1  # change one of them to test if it works
 
     image = torch.zeros((2, 10, 10))
     with pytest.raises(ValueError):
@@ -68,7 +69,7 @@ def test_subpixel_crop_multi_batch_2d():
     assert cropped_image.shape == (2, 3, 4, 4)
 
     expected_0 = torch.zeros((3, 4, 4))
-    expected_0[:, 2:4, 2:4] = 1
+    expected_0[1:, 2:4, 2:4] = 1
     assert torch.allclose(cropped_image[0], expected_0)
 
     expected_1 = torch.zeros((3, 4, 4))
