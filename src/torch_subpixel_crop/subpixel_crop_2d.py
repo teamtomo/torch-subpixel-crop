@@ -111,21 +111,10 @@ def _extract_patches_batched(
         align_corners=True
     )  # (batch, 1, n_pos, ph, pw)
 
-    # can these be combined
+    # rearrange to correct order
     patches = einops.rearrange(
-        patches, 'batch 1 n_pos ph pw -> (n_pos batch) ph pw',
+        patches, 'batch 1 n_pos ph pw -> n_pos batch ph pw',
     )
-
-    # Phase shift all at once
-    shifts_flat = einops.rearrange(
-        shifts, 'n_pos batch yx -> (n_pos batch) yx'
-    )
-    patches = fourier_shift_image_2d(image=patches, shifts=shifts_flat)
-
-    # Reshape to output
-    patches = einops.rearrange(
-        patches, '(n_pos batch) ph pw -> n_pos batch ph pw',
-        n_pos=n_pos, batch=batch,
-    )
+    patches = fourier_shift_image_2d(image=patches, shifts=shifts)
 
     return patches
