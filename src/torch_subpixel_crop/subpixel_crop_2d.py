@@ -110,7 +110,6 @@ def _extract_patches_batched(
         padding_mode='zeros',
         align_corners=True
     )  # (batch, 1, n_pos, ph, pw)
-    print(patches.shape)
 
     # can these be combined
     patches = einops.rearrange(

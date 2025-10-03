@@ -24,7 +24,7 @@ def timer(name: str):
 device = 'cuda'
 batch_size = 40
 n_positions = 4
-image_size = 2048
+image_size = 4096
 patch_size = 96
 
 # Create test data
