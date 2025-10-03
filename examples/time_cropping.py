@@ -23,12 +23,13 @@ def timer(name: str):
 # Test setup
 device = 'cuda'
 batch_size = 40
-image_size = 512
+n_positions = 4
+image_size = 2048
 patch_size = 96
 
 # Create test data
 images = torch.randn(batch_size, image_size, image_size, device=device)
-positions = torch.rand(batch_size, 2, device=device) * image_size
+positions = torch.rand(n_positions, batch_size, 2, device=device) * image_size
 
 # Warmup (important for accurate GPU timing!)
 for _ in range(5):

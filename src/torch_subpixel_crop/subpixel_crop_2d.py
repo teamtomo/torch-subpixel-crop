@@ -44,7 +44,7 @@ def subpixel_crop_2d(
     # Process ALL images at once (no loop!)
     patches = _extract_patches_batched(
         images=image,  # (batch, h, w)
-        positions=positions,  # (n_positions, batch, 2)
+        positions=positions,  # (..., batch, 2)
         output_image_sidelength=sidelength
     )
 
@@ -59,16 +59,17 @@ def subpixel_crop_2d(
 
 def _extract_patches_batched(
         images: torch.Tensor,  # (batch, h, w)
-        positions: torch.Tensor,  # (n_positions, batch, 2) yx
+        positions: torch.Tensor,  # (n, batch, 2)
         output_image_sidelength: int,
-) -> torch.Tensor:  # (n_positions, batch, ph, pw)
+) -> torch.Tensor:  # (n, batch, ph, pw)
     batch, h, w = images.shape
-    n_positions, batch_check, _ = positions.shape
-    assert batch == batch_check
+    n_pos, batch_check, _ = positions.shape
+    if batch != batch_check:
+        raise ValueError('Mismatch in batch size for images and positions.')
 
     # Find integer positions and shifts
     integer_positions = torch.round(positions)
-    shifts = integer_positions - positions  # (n_positions, batch, 2)
+    shifts = integer_positions - positions  # (n_pos, batch, 2)
 
     # Generate coordinate grid
     ph = pw = output_image_sidelength
@@ -87,36 +88,45 @@ def _extract_patches_batched(
     )
     grid = grid + integer_positions  # (n_pos, batch, ph, pw, 2)
 
-    # Flatten for grid_sample
-    grid_flat = einops.rearrange(grid,
-                                 'n_pos batch ph pw yx -> (n_pos batch) ph pw yx')
-    images_repeated = einops.repeat(
-        images, 'batch h w -> (n_pos batch) 1 h w', n_pos=n_positions
+    # flip batch and n_pos, so that n_pos indexes depth
+    grid_flat = (
+        einops.rearrange(grid, 'n_pos batch ph pw yx -> batch n_pos ph pw yx')
+    )
+    # add z=0 to trick the 3D case of grid_sample for our 2d application
+    # we end up with (batch n_pos ph pw zyx)
+    grid_flat = F.pad(grid_flat, [1, 0], mode='constant', value=0)
+
+    # add empty channel and depth dimension to images, depth is used to sample
+    # multiple positions simultaneously
+    images_rep = einops.rearrange(
+        images, 'batch h w -> batch 1 1 h w'
     )
 
     # Extract all patches at once
     patches = F.grid_sample(
-        input=images_repeated,
-        grid=array_to_grid_sample(grid_flat, array_shape=(h, w)),
+        input=images_rep,
+        grid=array_to_grid_sample(grid_flat, array_shape=(0, h, w)),
         mode='nearest',
         padding_mode='zeros',
         align_corners=True
-    )  # (n_pos * batch, 1, ph, pw)
+    )  # (batch, 1, n_pos, ph, pw)
+    print(patches.shape)
 
+    # can these be combined
     patches = einops.rearrange(
-        patches, '(n_pos batch) 1 ph pw -> (n_pos batch) ph pw',
-        n_pos=n_positions, batch=batch
+        patches, 'batch 1 n_pos ph pw -> (n_pos batch) ph pw',
     )
 
     # Phase shift all at once
-    shifts_flat = einops.rearrange(shifts,
-                                   'n_pos batch yx -> (n_pos batch) yx')
+    shifts_flat = einops.rearrange(
+        shifts, 'n_pos batch yx -> (n_pos batch) yx'
+    )
     patches = fourier_shift_image_2d(image=patches, shifts=shifts_flat)
 
     # Reshape to output
     patches = einops.rearrange(
         patches, '(n_pos batch) ph pw -> n_pos batch ph pw',
-        n_pos=n_positions, batch=batch
+        n_pos=n_pos, batch=batch,
     )
 
     return patches
