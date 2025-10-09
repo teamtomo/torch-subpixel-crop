@@ -31,8 +31,26 @@ def test_subpixel_crop_2d_with_fourier_shift():
         sidelength=4
     )
     assert cropped_image.shape == (4, 4)
-
-    # after fourier shifting the (2,2) shape in the image will have one max
+    # extracting an image at [5, 5] (see test above), results in:
+    #  [ 0, 0, 0, 0]
+    #  [ 0, 1, 1, 0]
+    #  [ 0, 1, 1, 0]
+    #  [ 0, 0, 0, 0]
+    #
+    # at [6, 6] it would be:
+    #  [ 1, 1, 0, 0]
+    #  [ 1, 1, 0, 0]
+    #  [ 0, 0, 0, 0]
+    #  [ 0, 0, 0, 0]
+    #
+    # with a linear interpolation between these two, we would end up with:
+    #  [0.25, 0.5 , 0.25, 0.  ],
+    #  [0.5 , 1.  , 0.5 , 0.  ],
+    #  [0.25, 0.5 , 0.25, 0.  ],
+    #  [0.  , 0.  , 0.  , 0.  ]
+    #
+    # this package instead does the subpixel shift via a phase shift in
+    # Fourier space, but the results still contains a single maximum value
     peak = torch.unravel_index(cropped_image.argmax(), (4, 4))
     assert tuple(map(float, peak)) == (1, 1)
 
