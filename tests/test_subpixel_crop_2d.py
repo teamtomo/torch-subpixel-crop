@@ -51,6 +51,7 @@ def test_subpixel_crop_2d_with_fourier_shift():
     #
     # this package instead does the subpixel shift via a phase shift in
     # Fourier space, but the results still contains a single maximum value
+    # due to interpolation of the square
     peak = torch.unravel_index(cropped_image.argmax(), (4, 4))
     assert tuple(map(float, peak)) == (1, 1)
 
