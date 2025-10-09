@@ -21,6 +21,25 @@ def test_subpixel_crop_single_2d():
     assert torch.allclose(cropped_image, expected)
 
 
+def test_subpixel_crop_2d_with_fourier_shift():
+    image = torch.zeros((10, 10))
+    image[4:6, 4:6] = 1
+
+    cropped_image = subpixel_crop_2d(
+        image=image,
+        positions=torch.tensor([5.5, 5.5]).float(),
+        sidelength=4
+    )
+    assert cropped_image.shape == (4, 4)
+
+    # after fourier shifting the (2,2) shape in the image will have one max
+    peak = torch.unravel_index(cropped_image.argmax(), (4, 4))
+    assert tuple(map(float, peak)) == (1, 1)
+    # expected = torch.zeros((4, 4))
+    # expected[1:3, 1:3] = 1
+    # assert torch.allclose(cropped_image, expected)
+
+
 def test_subpixel_crop_multi_2d():
     image = torch.zeros((10, 10))
     image[4:6, 4:6] = 1
