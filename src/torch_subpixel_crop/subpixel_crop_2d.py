@@ -60,6 +60,7 @@ def subpixel_crop_2d(
         images=image,  # (batch, h, w)
         positions=positions,  # (..., batch, 2)
         output_image_sidelength=sidelength,
+        mask=mask,
         return_rfft=return_rfft,
         fftshifted=fftshifted,
     )
