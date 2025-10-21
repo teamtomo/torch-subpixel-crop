@@ -1,8 +1,9 @@
 import einops
 import torch
 from torch.nn import functional as F
-from torch_fourier_shift import fourier_shift_image_2d
+from torch_fourier_shift import fourier_shift_dft_2d, fourier_shift_image_2d
 from torch_grid_utils import coordinate_grid
+from typing import Optional
 
 from torch_subpixel_crop.dft_utils import dft_center
 from torch_subpixel_crop.grid_sample_utils import array_to_grid_sample
@@ -12,6 +13,9 @@ def subpixel_crop_2d(
         image: torch.Tensor,
         positions: torch.Tensor,
         sidelength: int,
+        mask: Optional[torch.Tensor] = None,
+        return_rfft: bool = False,
+        fftshifted: bool = False,
 ):
     """Extract square patches from 2D images with subpixel precision.
 
@@ -23,6 +27,16 @@ def subpixel_crop_2d(
         `(..., b, 2)` or `(..., 2)` array of coordinates for patch centers.
     sidelength : int
         Sidelength of square patches extracted from `images`.
+    mask : torch.Tensor
+        Optional mask to apply in real space before FFT, shape (size, size)
+         or broadcastable to (..., b, size, size)
+    return_rfft : bool, default False
+        If `True`, return the rft of the patches. It can save an FFT
+         operation because the subpixel shift already requires an FFT.
+    fftshifted : bool, default False
+        In case the patches are returned as rft, optionally also apply a
+         fftshift. This is efficient because it can be applied together
+         with the subpixel shift.
 
     Returns
     -------
@@ -45,7 +59,10 @@ def subpixel_crop_2d(
     patches = _extract_patches_batched(
         images=image,  # (batch, h, w)
         positions=positions,  # (..., batch, 2)
-        output_image_sidelength=sidelength
+        output_image_sidelength=sidelength,
+        mask=mask,
+        return_rfft=return_rfft,
+        fftshifted=fftshifted,
     )
 
     # Restore original shape
@@ -61,6 +78,9 @@ def _extract_patches_batched(
         images: torch.Tensor,  # (batch, h, w)
         positions: torch.Tensor,  # (n, batch, 2)
         output_image_sidelength: int,
+        mask: Optional[torch.Tensor] = None,
+        return_rfft: bool = False,
+        fftshifted: bool = False,
 ) -> torch.Tensor:  # (n, batch, ph, pw)
     batch, h, w = images.shape
     n_pos, batch_check, _ = positions.shape
@@ -115,6 +135,28 @@ def _extract_patches_batched(
     patches = einops.rearrange(
         patches, 'batch 1 n_pos ph pw -> n_pos batch ph pw',
     )
-    patches = fourier_shift_image_2d(image=patches, shifts=shifts)
 
-    return patches
+    if mask is not None:
+        patches = patches * mask
+
+    if return_rfft:
+        # fft the patches
+        patches_dft = torch.fft.rfftn(patches, dim=(-2, -1))
+
+        # apply the subpixel shift
+        patches_dft = fourier_shift_dft_2d(
+            dft=patches_dft,
+            image_shape=(ph, pw),
+            shifts=shifts,
+            rfft=True,
+            fftshifted=False,
+        )
+
+        if fftshifted:
+            patches_dft = torch.fft.fftshift(patches_dft, dim=(-2,))
+
+        return patches_dft
+
+    else:
+        patches = fourier_shift_image_2d(image=patches, shifts=shifts)
+        return patches
