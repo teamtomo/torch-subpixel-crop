@@ -1,7 +1,7 @@
-import numpy as np
 import torch
 import einops
 import torch.nn.functional as F
+from typing import Optional
 from torch_fourier_shift import fourier_shift_image_3d, fourier_shift_dft_3d
 from torch_grid_utils import coordinate_grid
 
@@ -13,6 +13,7 @@ def subpixel_crop_3d(
         image: torch.Tensor,  # (d, h, w)
         positions: torch.Tensor,  # (b, 3) zyx
         sidelength: int,
+        mask: Optional[torch.Tensor] = None,
         return_rfft: bool = False,
         fftshifted: bool = False,
 ) -> torch.Tensor:
@@ -32,6 +33,9 @@ def subpixel_crop_3d(
         `(..., 3)` array of coordinates for patch centers.
     sidelength: int
         Sidelength of cubic patches extracted from `image`.
+    mask : torch.Tensor
+        Optional mask to apply in real space before FFT, shape (size, size)
+         or broadcastable to (..., b, size, size)
     return_rfft : bool, default False
         If `True`, return the rft of the patches. It can save an FFT
          operation because the subpixel shift already requires an FFT.
@@ -74,6 +78,9 @@ def subpixel_crop_3d(
         align_corners=True
     )
     patches = einops.rearrange(patches, 'b 1 d h w -> b d h w')
+
+    if mask is not None:
+        patches = patches * mask
 
     # phase shift to center images
     if return_rfft:
