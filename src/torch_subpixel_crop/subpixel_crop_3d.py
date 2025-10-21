@@ -38,11 +38,13 @@ def subpixel_crop_3d(
          or broadcastable to (..., b, size, size)
     return_rfft : bool, default False
         If `True`, return the rft of the patches. It can save an FFT
-         operation because the subpixel shift already requires an FFT.
+         operation because the subpixel shift already requires an FFT.The returned
+         rffts have their origin at (0, 0)
     decenter : bool, default False
         In case the patches are returned as rft, optionally also apply an
          additional shift of sidelength / 2 so that the real space image has its origin
-         at 0.
+         at 0. NOTE: this does not change the origin in Fourier space, the rffts
+         still have their origin at (0, 0)
 
     Returns
     -------
