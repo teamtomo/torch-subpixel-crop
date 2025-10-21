@@ -19,6 +19,53 @@ def test_subpixel_crop_single_3d():
     assert torch.allclose(cropped_image, expected)
 
 
+def test_subpixel_crop_single_3d_return_rfft():
+    image = torch.zeros((10, 10, 10))
+    image[4:6, 4:6, 4:6] = 1
+
+    cropped_image_real = subpixel_crop_3d(
+        image=image,
+        positions=torch.tensor([5.5, 5.5, 5.5]).float(),
+        sidelength=4
+    )
+
+    cropped_image_rfft = subpixel_crop_3d(
+        image=image,
+        positions=torch.tensor([5.5, 5.5, 5.5]).float(),
+        sidelength=4,
+        return_rfft=True,
+        fftshifted=False,
+    )
+    cropped_image_rfft = torch.fft.irfftn(cropped_image_rfft, s=(4, 4, 4))
+    assert torch.allclose(cropped_image_rfft, cropped_image_real)
+
+
+def test_subpixel_crop_single_3d_return_rfft_shifted():
+    image = torch.zeros((10, 10, 10))
+    image[4:6, 4:6, 4:6] = 1
+
+    cropped_image_real = subpixel_crop_3d(
+        image=image,
+        positions=torch.tensor([5.5, 5.5, 5.5]).float(),
+        sidelength=4
+    )
+
+    cropped_image_fftshifted = subpixel_crop_3d(
+        image=image,
+        positions=torch.tensor([5.5, 5.5, 5.5]).float(),
+        sidelength=4,
+        return_rfft=True,
+        fftshifted=True,
+    )
+    cropped_image_fftshifted = (
+        torch.fft.ifftshift(cropped_image_fftshifted, dim=(-3, -2,))
+    )
+    cropped_image_fftshifted = (
+        torch.fft.irfftn(cropped_image_fftshifted, s=(4, 4, 4))
+    )
+    assert torch.allclose(cropped_image_fftshifted, cropped_image_real)
+
+
 def test_subpixel_crop_multi_3d():
     image = torch.zeros((10, 10, 10))
     image[4:6, 4:6, 4:6] = 1
