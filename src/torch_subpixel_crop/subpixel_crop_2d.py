@@ -1,7 +1,7 @@
 import einops
 import torch
 from torch.nn import functional as F
-from torch_fourier_shift import fourier_shift_image_2d
+from torch_fourier_shift import fourier_shift_dft_2d, fourier_shift_image_2d
 from torch_grid_utils import coordinate_grid
 
 from torch_subpixel_crop.dft_utils import dft_center
@@ -12,6 +12,8 @@ def subpixel_crop_2d(
         image: torch.Tensor,
         positions: torch.Tensor,
         sidelength: int,
+        return_dft: bool = False,
+        fftshifted: bool = False,
 ):
     """Extract square patches from 2D images with subpixel precision.
 
@@ -45,7 +47,9 @@ def subpixel_crop_2d(
     patches = _extract_patches_batched(
         images=image,  # (batch, h, w)
         positions=positions,  # (..., batch, 2)
-        output_image_sidelength=sidelength
+        output_image_sidelength=sidelength,
+        return_dft=return_dft,
+        fftshifted=fftshifted,
     )
 
     # Restore original shape
@@ -61,6 +65,8 @@ def _extract_patches_batched(
         images: torch.Tensor,  # (batch, h, w)
         positions: torch.Tensor,  # (n, batch, 2)
         output_image_sidelength: int,
+        return_dft: bool = False,
+        fftshifted: bool = False,
 ) -> torch.Tensor:  # (n, batch, ph, pw)
     batch, h, w = images.shape
     n_pos, batch_check, _ = positions.shape
@@ -115,6 +121,23 @@ def _extract_patches_batched(
     patches = einops.rearrange(
         patches, 'batch 1 n_pos ph pw -> n_pos batch ph pw',
     )
-    patches = fourier_shift_image_2d(image=patches, shifts=shifts)
 
-    return patches
+    if return_dft:
+        # fft the patches
+        patches_dft = torch.fft.rfftn(patches, dim=(-2, -1))
+
+        # do subpixel shift and optional fftshift
+        if fftshifted:
+            shifts += pw / 2
+        patches_dft = fourier_shift_dft_2d(
+            dft=patches_dft,
+            image_shape=(ph, pw),
+            shifts=shifts,
+            rfft=True,
+            fftshifted=False,
+        )
+        return patches_dft
+
+    else:
+        patches = fourier_shift_image_2d(image=patches, shifts=shifts)
+        return patches
