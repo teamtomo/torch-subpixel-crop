@@ -15,7 +15,7 @@ def subpixel_crop_3d(
         sidelength: int,
         mask: Optional[torch.Tensor] = None,
         return_rfft: bool = False,
-        fftshifted: bool = False,
+        decenter: bool = False,
 ) -> torch.Tensor:
     """Extract cubic patches from a 3D image with subpixel precision.
 
@@ -38,11 +38,13 @@ def subpixel_crop_3d(
          or broadcastable to (..., b, size, size)
     return_rfft : bool, default False
         If `True`, return the rft of the patches. It can save an FFT
-         operation because the subpixel shift already requires an FFT.
-    fftshifted : bool, default False
-        In case the patches are returned as rft, optionally also apply a
-         fftshift. This is efficient because it can be applied together
-         with the subpixel shift.
+         operation because the subpixel shift already requires an FFT.The returned
+         rffts have their origin at (0, 0)
+    decenter : bool, default False
+        In case the patches are returned as rft, optionally also apply an
+         additional shift of sidelength / 2 so that the real space image has its origin
+         at 0. NOTE: this does not change the origin in Fourier space, the rffts
+         still have their origin at (0, 0)
 
     Returns
     -------
@@ -86,6 +88,9 @@ def subpixel_crop_3d(
     if return_rfft:
         patches = torch.fft.rfftn(patches, dim=(-3, -2, -1))
 
+        if decenter:
+            shifts = shifts + pw / 2
+
         # apply the subpixel shift
         patches = fourier_shift_dft_3d(
             dft=patches,
@@ -94,9 +99,6 @@ def subpixel_crop_3d(
             rfft=True,
             fftshifted=False,
         )
-
-        if fftshifted:
-            patches = torch.fft.fftshift(patches, dim=(-3, -2,))
 
     else:
         patches = fourier_shift_image_3d(image=patches, shifts=shifts)
