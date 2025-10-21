@@ -12,7 +12,7 @@ def subpixel_crop_2d(
         image: torch.Tensor,
         positions: torch.Tensor,
         sidelength: int,
-        return_dft: bool = False,
+        return_rft: bool = False,
         fftshifted: bool = False,
 ):
     """Extract square patches from 2D images with subpixel precision.
@@ -25,6 +25,13 @@ def subpixel_crop_2d(
         `(..., b, 2)` or `(..., 2)` array of coordinates for patch centers.
     sidelength : int
         Sidelength of square patches extracted from `images`.
+    return_rft : bool, default False
+        If `True`, return the rft of the patches. It can save an FFT
+         operation because the subpixel shift already requires an FFT.
+    fftshifted : bool, default False
+        In case the patches are returned as rft, optionally also apply a
+         fftshift. This is efficient because it can be applied together
+         with the subpixel shift.
 
     Returns
     -------
@@ -48,7 +55,7 @@ def subpixel_crop_2d(
         images=image,  # (batch, h, w)
         positions=positions,  # (..., batch, 2)
         output_image_sidelength=sidelength,
-        return_dft=return_dft,
+        return_dft=return_rft,
         fftshifted=fftshifted,
     )
 
@@ -65,7 +72,7 @@ def _extract_patches_batched(
         images: torch.Tensor,  # (batch, h, w)
         positions: torch.Tensor,  # (n, batch, 2)
         output_image_sidelength: int,
-        return_dft: bool = False,
+        return_rft: bool = False,
         fftshifted: bool = False,
 ) -> torch.Tensor:  # (n, batch, ph, pw)
     batch, h, w = images.shape
@@ -122,7 +129,7 @@ def _extract_patches_batched(
         patches, 'batch 1 n_pos ph pw -> n_pos batch ph pw',
     )
 
-    if return_dft:
+    if return_rft:
         # fft the patches
         patches_dft = torch.fft.rfftn(patches, dim=(-2, -1))
 
