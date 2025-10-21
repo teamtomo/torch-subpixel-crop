@@ -55,7 +55,7 @@ def subpixel_crop_2d(
         images=image,  # (batch, h, w)
         positions=positions,  # (..., batch, 2)
         output_image_sidelength=sidelength,
-        return_dft=return_rft,
+        return_rft=return_rft,
         fftshifted=fftshifted,
     )
 
@@ -133,9 +133,7 @@ def _extract_patches_batched(
         # fft the patches
         patches_dft = torch.fft.rfftn(patches, dim=(-2, -1))
 
-        # do subpixel shift and optional fftshift
-        if fftshifted:
-            shifts += pw / 2
+        # apply the subpixel shift
         patches_dft = fourier_shift_dft_2d(
             dft=patches_dft,
             image_shape=(ph, pw),
@@ -143,6 +141,10 @@ def _extract_patches_batched(
             rfft=True,
             fftshifted=False,
         )
+
+        if fftshifted:
+            patches_dft = torch.fft.fftshift(patches_dft, dim=(-2,))
+
         return patches_dft
 
     else:
